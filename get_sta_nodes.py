@@ -1,4 +1,5 @@
 import sys
+import os
 
 def parse_blast_results(blast_file, target_species):
     # Open the blast result file for reading
@@ -18,6 +19,27 @@ def parse_blast_results(blast_file, target_species):
     
     return matching_columns
 
+def read_matching_nodes(filename):
+    with open(filename, 'r') as file:
+        nodes = [line.strip() for line in file]
+    return nodes
+
+def filter_scaffolds(matching_nodes, scaffold_file, output_file):
+    nodes_set = set(matching_nodes)
+    keep = False
+    with open(scaffold_file, 'r') as input_file, open(output_file, 'w') as output:
+        for line in input_file:
+            if line.startswith('>'):
+                node_name = line.split()[0][1:]
+                if node_name in nodes_set:
+                    keep = True
+                    output.write(line)
+                else:
+                    keep = False
+            elif keep:
+                output.write(line)
+
+
 if __name__ == "__main__":
     # Check if the user provided the blast result file path and the target species
     if len(sys.argv) != 3:
@@ -31,6 +53,13 @@ if __name__ == "__main__":
     matching_columns = parse_blast_results(blast_file, target_species)
 
     # Save the matching first columns to a file
-    with open("matching_nodes", "w") as output_file:
+    existing_columns = set()
+    with open("matching_nodes", "a") as output_file:
         for col in matching_columns:
-            output_file.write(col + "\n")
+            if col not in existing_columns:
+                output_file.write(col + "\n")
+                existing_columns.add(col)
+    
+    matching_nodes = read_matching_nodes('matching_nodes')
+    filter_scaffolds(matching_nodes, 'scaffolds.fasta', 'scaffolds_final.fasta')
+    os.remove('matching_nodes')
